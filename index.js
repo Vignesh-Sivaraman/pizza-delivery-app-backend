@@ -20,7 +20,7 @@ app.use(express.json());
 app.use(
   cors({
     origin: "http://localhost:3000",
-    origin: "https://viki-pizza-delivery-app.netlify.app",
+    // origin: "https://viki-pizza-delivery-app.netlify.app",
   })
 );
 
@@ -33,6 +33,25 @@ const createConnection = async () => {
   return client;
 };
 const client = await createConnection();
+
+// authenticate function
+
+let authenticate = (req, res, next) => {
+  try {
+    if (req.headers.authorization) {
+      let decode = jwt.verify(req.headers.authorization, process.env.SECRET);
+      if (decode) {
+        next();
+      } else {
+        res.status(401).json({ message: "Unauthorized" });
+      }
+    } else {
+      res.status(401).json({ message: "Unauthorized" });
+    }
+  } catch (err) {
+    console.log(err);
+  }
+};
 
 // nodemailer transporter module
 
@@ -269,6 +288,41 @@ app.post("/resetpass", async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ message: "Something went wrong" });
+  }
+});
+
+// To add pizza varites to database for admin
+
+app.post("/pizzas", authenticate, async (req, res) => {
+  try {
+    let response = await client
+      .db("pizzaDB")
+      .collection("Pizzas")
+      .insertOne(req.body);
+
+    if (response.acknowledged)
+      return res.status(200).json({ message: "Data inserted" });
+  } catch (err) {
+    res.status(500).json({ message: err });
+    console.error(err);
+  }
+});
+
+// To get pizza varites from database
+
+app.get("/pizzas", authenticate, async (req, res) => {
+  try {
+    let response = await client
+      .db("pizzaDB")
+      .collection("Pizzas")
+      .find()
+      .toArray();
+    console.log(response);
+
+    if (response) return res.status(200).json(response);
+  } catch (err) {
+    res.status(500).json({ message: err });
+    console.error(err);
   }
 });
 
