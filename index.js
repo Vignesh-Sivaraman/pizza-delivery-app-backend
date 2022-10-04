@@ -18,10 +18,11 @@ app.use(express.json());
 //cors
 
 app.use(
-  cors({
-    origin: "http://localhost:3000",
-    // origin: "https://viki-pizza-delivery-app.netlify.app",
-  })
+  cors()
+  // {
+  //   origin: "http://localhost:3000",
+  //   origin: "https://viki-pizza-delivery-app.netlify.app",
+  // }
 );
 
 // Establishing connection to database
@@ -48,8 +49,8 @@ let authenticate = (req, res, next) => {
     } else {
       res.status(401).json({ message: "Unauthorized" });
     }
-  } catch (err) {
-    console.log(err);
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 };
 
@@ -77,7 +78,7 @@ const verifymail = async (email, subject, text) => {
       text: text,
     });
   } catch (error) {
-    console.error(error);
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 };
 
@@ -124,8 +125,8 @@ app.post("/register", async (req, res) => {
       `Hi I am form Pizza Lair,\n Please Click the below link to verify Your email \n ${verifyurl}`
     );
     res.status(200).json({ message: "An email sent to your mail id" });
-  } catch (err) {
-    res.status(500).json({ message: `something went wrong; ${err}` });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 });
 
@@ -150,8 +151,8 @@ app.get("/register/:id/verify/:token", async (req, res) => {
       { $unset: { hashID: "", token: "" } }
     );
     res.status(200).json({ message: "Email verified Successfully" });
-  } catch (err) {
-    res.status(500).json({ message: `something went wrong; ${err}` });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 });
 
@@ -167,6 +168,7 @@ app.post("/login", async (req, res) => {
     // Login logic
     if (user) {
       let type = user.usertype;
+      let email = user.email;
       let compare = await bcrypt.compare(req.body.password, user.password);
       if (type !== req.body.usertype)
         return res.status(401).json({
@@ -177,7 +179,7 @@ app.post("/login", async (req, res) => {
         let token = jwt.sign({ _id: user._id }, process.env.SECRET, {
           expiresIn: "2 days",
         });
-        res.status(200).json({ token, type });
+        res.status(200).json({ token, type, email });
       } else {
         res.status(401).json({
           message:
@@ -187,8 +189,8 @@ app.post("/login", async (req, res) => {
     } else {
       res.status(404).json({ message: "user email not found" });
     }
-  } catch (err) {
-    res.status(500).json({ message: "Something went wrong" });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 });
 
@@ -230,8 +232,8 @@ app.post("/forpass", async (req, res) => {
       `Hi i am form Pizza Lair, \n Please Click the below link to reset Your password \n ${verifyurl}`
     );
     res.status(200).json({ message: "An email sent to your mail id" });
-  } catch (err) {
-    res.status(500).json({ message: `something went wrong; ${err}` });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 });
 
@@ -252,8 +254,8 @@ app.get("/forpass/:id/verify/:token", async (req, res) => {
       { $set: { passstatus: true, passID: "", passtoken: "" } }
     );
     res.status(200).json({ message: "Email verified Successfully" });
-  } catch (err) {
-    res.status(500).json({ message: `something went wrong; ${err}` });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 });
 
@@ -286,8 +288,8 @@ app.post("/resetpass", async (req, res) => {
           "Email is not verified for password reset \n Kindly verify your Email",
       });
     }
-  } catch (err) {
-    res.status(500).json({ message: "Something went wrong" });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 });
 
@@ -302,9 +304,8 @@ app.post("/pizzas", authenticate, async (req, res) => {
 
     if (response.acknowledged)
       return res.status(200).json({ message: "Data inserted" });
-  } catch (err) {
-    res.status(500).json({ message: err });
-    console.error(err);
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 });
 
@@ -317,12 +318,84 @@ app.get("/pizzas", authenticate, async (req, res) => {
       .collection("Pizzas")
       .find()
       .toArray();
-    console.log(response);
+    if (response) return res.status(200).json(response);
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
+  }
+});
+
+// items cart pizzas
+app.post("/cartpizzas", authenticate, async (req, res) => {
+  try {
+    let response = await client
+      .db("pizzaDB")
+      .collection("CartPizzas")
+      .insertOne(req.body);
+
+    if (response.acknowledged)
+      return res.status(200).json({ message: "Added to Cart" });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
+  }
+});
+
+// to add inventory
+
+app.post("/inventory", authenticate, async (req, res) => {
+  try {
+    let response = await client
+      .db("pizzaDB")
+      .collection("Inventory")
+      .findOne({ title: req.body.title });
+    if (response) {
+      await client
+        .db("pizzaDB")
+        .collection("Inventory")
+        .findOneAndDelete({ title: req.body.title });
+    }
+
+    let addData = await client
+      .db("pizzaDB")
+      .collection("Inventory")
+      .insertOne(req.body);
+
+    if (addData.acknowledged)
+      return res.status(200).json({ message: "Added to Stock" });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
+  }
+});
+
+// to get inventory
+app.get("/inventory", authenticate, async (req, res) => {
+  try {
+    let response = await client
+      .db("pizzaDB")
+      .collection("Inventory")
+      .find()
+      .toArray();
 
     if (response) return res.status(200).json(response);
-  } catch (err) {
-    res.status(500).json({ message: err });
-    console.error(err);
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
+  }
+});
+
+// low inventory
+
+app.post("/lowinventory", authenticate, async (req, res) => {
+  let lowstock = JSON.stringify(req.body.required);
+  try {
+    await verifymail(
+      req.body.email,
+      "Verify Email",
+      `Hi I am form Pizza Lair,\n The below mentioned stocks are very low \n ${lowstock} `
+    );
+    res.status(200).json({
+      message: "Mail sent to Your email regarding low stock, pls check",
+    });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
   }
 });
 
