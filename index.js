@@ -405,7 +405,7 @@ app.post("/approvecartpizzas", authenticate, async (req, res) => {
       );
 
     if (addData.acknowledged && orderUpdate)
-      return res.status(200).json({ message: "Added to Stock" });
+      return res.status(200).json({ message: "Order Approved" });
   } catch (error) {
     res.status(500).json({ message: `something went wrong; ${error}` });
   }
