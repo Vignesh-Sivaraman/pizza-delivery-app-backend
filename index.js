@@ -324,16 +324,88 @@ app.get("/pizzas", authenticate, async (req, res) => {
   }
 });
 
-// items cart pizzas
+// to post cart pizzas
 app.post("/cartpizzas", authenticate, async (req, res) => {
   try {
     let response = await client
       .db("pizzaDB")
       .collection("CartPizzas")
       .insertOne(req.body);
+    let uri = "https://viki-pizza-delivery-app.netlify.app/";
 
-    if (response.acknowledged)
-      return res.status(200).json({ message: "Added to Cart" });
+    if (response.acknowledged) {
+      res.status(200).json({
+        message:
+          "order-submitted, Please login to a admin account if you are a tester",
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
+  }
+});
+
+// to get order details
+
+app.get("/getcartpizzas", authenticate, async (req, res) => {
+  try {
+    let response = await client
+      .db("pizzaDB")
+      .collection("CartPizzas")
+      .find()
+      .toArray();
+
+    if (response) return res.status(200).json(response);
+    else res.status(401).json({ message: "something went wrong" });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
+  }
+});
+
+// to delete current order
+app.get("/deletecartpizzas", authenticate, async (req, res) => {
+  try {
+    let response = await client
+      .db("pizzaDB")
+      .collection("CartPizzas")
+      .findOneAndDelete({ orderApproved: true })
+      .toArray();
+
+    if (response) return res.status(200).json(response);
+    else res.status(401).json({ message: "something went wrong" });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
+  }
+});
+
+// to approve order details
+
+app.post("/approvecartpizzas", authenticate, async (req, res) => {
+  try {
+    let response = await client
+      .db("pizzaDB")
+      .collection("Inventory")
+      .findOne({ title: req.body.title });
+    if (response) {
+      await client
+        .db("pizzaDB")
+        .collection("Inventory")
+        .findOneAndDelete({ title: req.body.title });
+    }
+
+    let addData = await client
+      .db("pizzaDB")
+      .collection("Inventory")
+      .insertOne(req.body);
+    let orderUpdate = await client
+      .db("pizzaDB")
+      .collection("CartPizzas")
+      .findOneAndUpdate(
+        { orderApproved: false },
+        { $set: { orderApproved: true } }
+      );
+
+    if (addData.acknowledged && orderUpdate)
+      return res.status(200).json({ message: "Added to Stock" });
   } catch (error) {
     res.status(500).json({ message: `something went wrong; ${error}` });
   }
