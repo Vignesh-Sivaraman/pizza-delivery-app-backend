@@ -331,7 +331,6 @@ app.post("/cartpizzas", authenticate, async (req, res) => {
       .db("pizzaDB")
       .collection("CartPizzas")
       .insertOne(req.body);
-    let uri = "https://viki-pizza-delivery-app.netlify.app/";
 
     if (response.acknowledged) {
       res.status(200).json({
