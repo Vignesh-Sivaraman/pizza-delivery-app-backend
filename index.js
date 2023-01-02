@@ -7,6 +7,7 @@ dotenv.config();
 import { MongoClient } from "mongodb";
 const URL = process.env.DB;
 import nodemailer from "nodemailer";
+import razorpay from "razorpay";
 
 // initializing express
 const app = express();
@@ -34,6 +35,13 @@ const createConnection = async () => {
   return client;
 };
 const client = await createConnection();
+
+// initailizing razorpay
+
+const razorpayInstance = new razorpay({
+  key_id: "rzp_test_xBhEWrH6cW2ePT",
+  key_secret: "cY677I6XNYlYAPFGxlQUS9Sw",
+});
 
 // authenticate function
 
@@ -465,6 +473,24 @@ app.post("/lowinventory", authenticate, async (req, res) => {
     res.status(200).json({
       message: "Mail sent to Your email regarding low stock, pls check",
     });
+  } catch (error) {
+    res.status(500).json({ message: `something went wrong; ${error}` });
+  }
+});
+
+//razor pay integration
+
+app.post("/razorpay", authenticate, async (req, res) => {
+  const { amount } = req.body;
+  const options = {
+    amount: (amount * 100).toString(),
+    currency: "INR",
+  };
+
+  try {
+    const response = await razorpayInstance.orders.create(options);
+    console.log(response);
+    res.status(200).json({ ...response });
   } catch (error) {
     res.status(500).json({ message: `something went wrong; ${error}` });
   }
